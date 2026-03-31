@@ -584,7 +584,7 @@
 <div id="wallpaper"></div>
 
 <!-- NOTIFICATION CENTER -->
-<div id="notif-center" id="notif-center"></div>
+<div id="notif-center"></div>
 
 <!-- TOP BAR -->
 <div id="topbar">
@@ -593,9 +593,9 @@
     <span>붉은별 OS</span>
   </div>
   <div class="menu-items">
-    <button class="top-menu-btn" onclick="showTopMenu('apps')">Applications</button>
-    <button class="top-menu-btn" onclick="showTopMenu('places')">Places</button>
-    <button class="top-menu-btn" onclick="showTopMenu('system')">System</button>
+    <button class="top-menu-btn">Applications</button>
+    <button class="top-menu-btn">Places</button>
+    <button class="top-menu-btn">System</button>
   </div>
   <div class="right">
     <div class="sys-indicator" id="net-indicator">▲▼ 1.2MB/s</div>
@@ -685,48 +685,69 @@
 
 <script>
 // ===== GLOBALS =====
-let windows = {};
-let zTop = 1000;
-let focusedWin = null;
-let calDate = new Date();
-let calcVal = '0', calcExpr = '', calcOp = null, calcPrev = null;
-let tasks = [
+var appWindows = {};
+var zTop = 1000;
+var focusedWin = null;
+var calDate = new Date();
+
+// FIX: renamed calc state vars to avoid conflict with calcOp() and calcVal() functions
+var calcCurrentVal = '0';
+var calcCurrentExpr = '';
+var calcCurrentOp = null;
+var calcPrevVal = null;
+
+var tasks = [
   { id: 1, text: 'Complete daily report', done: false, priority: 'high' },
   { id: 2, text: 'Review network logs', done: false, priority: 'med' },
   { id: 3, text: 'Update system packages', done: true, priority: 'low' },
   { id: 4, text: 'Attend morning briefing', done: true, priority: 'high' },
 ];
-let taskIdSeq = 5;
-let termHistory = [];
-let termHistIdx = -1;
-let sysmonInterval = null;
-let musicPlaying = false;
-const musicTracks = [
+var taskIdSeq = 5;
+var termHistory = [];
+var termHistIdx = -1;
+var sysmonInterval = null;
+var musicPlaying = false;
+var musicTracks = [
   { title: '반갑습니다', artist: 'State Orchestra', dur: '3:42' },
   { title: 'Arirang', artist: 'National Choir', dur: '4:15' },
   { title: '조선은 하나다', artist: 'Moranbong Band', dur: '3:58' },
   { title: '내 나라 제일로 좋아', artist: 'State Orchestra', dur: '2:55' },
   { title: 'Where are You, Dear General?', artist: 'National Choir', dur: '5:01' },
 ];
-let currentTrack = 0;
-let browserHistory = [];
-let browserCurrent = -1;
+var currentTrack = 0;
+var browserHistory = [];
+var browserCurrent = -1;
 
 // ===== SPLASH =====
-(function splash() {
-  const msgs = ['Initializing kernel...','Loading RedStar modules...','Mounting filesystems...','Starting system services...','Initializing display server...','Loading desktop environment...','Welcome to 붉은별 OS'];
-  let i = 0;
-  const prog = document.getElementById('splash-prog');
-  const status = document.getElementById('splash-status');
-  const iv = setInterval(() => {
-    i++;
-    prog.style.width = (i / msgs.length * 100) + '%';
-    status.textContent = msgs[i-1];
+(function runSplash() {
+  var msgs = [
+    'Initializing kernel...',
+    'Loading RedStar modules...',
+    'Mounting filesystems...',
+    'Starting system services...',
+    'Initializing display server...',
+    'Loading desktop environment...',
+    'Welcome to 붉은별 OS'
+  ];
+  var i = 0;
+  var prog = document.getElementById('splash-prog');
+  var status = document.getElementById('splash-status');
+
+  var iv = setInterval(function() {
+    if (i < msgs.length) {
+      prog.style.width = ((i + 1) / msgs.length * 100) + '%';
+      status.textContent = msgs[i];
+      i++;
+    }
     if (i >= msgs.length) {
       clearInterval(iv);
-      setTimeout(() => {
-        document.getElementById('splash').classList.add('hidden');
-        setTimeout(() => { document.getElementById('splash').remove(); startOS(); }, 500);
+      setTimeout(function() {
+        var splash = document.getElementById('splash');
+        splash.classList.add('hidden');
+        setTimeout(function() {
+          splash.remove();
+          startOS();
+        }, 500);
       }, 600);
     }
   }, 400);
@@ -737,41 +758,45 @@ function startOS() {
   setInterval(updateClock, 1000);
   setInterval(updateSysStats, 2000);
   showNotif('붉은별 OS', '시스템이 준비되었습니다. Welcome to RedStar OS!');
-  setTimeout(() => showNotif('Security', 'Firewall active. All connections monitored.'), 3000);
+  setTimeout(function() {
+    showNotif('Security', 'Firewall active. All connections monitored.');
+  }, 3000);
 }
 
 // ===== CLOCK =====
 function updateClock() {
-  const now = new Date();
-  const p = v => String(v).padStart(2,'0');
-  document.getElementById('clock').textContent = `${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())} | ${now.toLocaleDateString('ko-KR')}`;
+  var now = new Date();
+  function p(v) { return String(v).padStart(2, '0'); }
+  document.getElementById('clock').textContent =
+    p(now.getHours()) + ':' + p(now.getMinutes()) + ':' + p(now.getSeconds()) +
+    ' | ' + now.toLocaleDateString('ko-KR');
 }
 
 // ===== SYSTEM STATS =====
 function updateSysStats() {
-  const cpu = Math.floor(Math.random() * 30 + 5);
+  var cpu = Math.floor(Math.random() * 30 + 5);
   document.getElementById('cpu-pct').textContent = cpu + '%';
-  const net = (Math.random() * 3).toFixed(1);
-  document.getElementById('net-indicator').textContent = `▲▼ ${net}MB/s`;
-  const mem = Math.floor(Math.random() * 20 + 25);
-  document.getElementById('mem-indicator').textContent = `MEM ${mem}%`;
+  var net = (Math.random() * 3).toFixed(1);
+  document.getElementById('net-indicator').textContent = '\u25b2\u25bc ' + net + 'MB/s';
+  var mem = Math.floor(Math.random() * 20 + 25);
+  document.getElementById('mem-indicator').textContent = 'MEM ' + mem + '%';
 }
 
 // ===== NOTIFICATIONS =====
 function showNotif(title, msg) {
-  const nc = document.getElementById('notif-center');
-  const n = document.createElement('div');
+  var nc = document.getElementById('notif-center');
+  var n = document.createElement('div');
   n.className = 'notif';
-  n.innerHTML = `<h4>${title}</h4><p>${msg}</p>`;
-  n.onclick = () => n.remove();
+  n.innerHTML = '<h4>' + title + '</h4><p>' + msg + '</p>';
+  n.onclick = function() { n.remove(); };
   nc.appendChild(n);
-  setTimeout(() => n.remove(), 5000);
+  setTimeout(function() { if (n.parentNode) n.remove(); }, 5000);
 }
 
 // ===== WINDOW MANAGEMENT =====
 function createWindow(id, title, w, h, content) {
-  if (windows[id]) { focusWindow(id); return; }
-  const win = document.createElement('div');
+  if (appWindows[id]) { focusWindow(id); return; }
+  var win = document.createElement('div');
   win.className = 'window';
   win.id = 'win-' + id;
   win.style.width = w + 'px';
@@ -779,50 +804,54 @@ function createWindow(id, title, w, h, content) {
   win.style.left = (100 + Math.random() * 200) + 'px';
   win.style.top = (60 + Math.random() * 100) + 'px';
   win.style.zIndex = ++zTop;
-  win.innerHTML = `
-    <div class="window-titlebar" id="tb-${id}">
-      <div class="window-btns">
-        <button class="wbtn close" onclick="closeWindow('${id}')"></button>
-        <button class="wbtn min" onclick="minimizeWindow('${id}')"></button>
-        <button class="wbtn max" onclick="maximizeWindow('${id}')"></button>
-      </div>
-      <div class="window-title">★ ${title}</div>
-    </div>
-    <div class="window-content" id="wc-${id}">${content}</div>
-  `;
+  win.innerHTML =
+    '<div class="window-titlebar" id="tb-' + id + '">' +
+      '<div class="window-btns">' +
+        '<button class="wbtn close" onclick="closeWindow(\'' + id + '\')"></button>' +
+        '<button class="wbtn min" onclick="minimizeWindow(\'' + id + '\')"></button>' +
+        '<button class="wbtn max" onclick="maximizeWindow(\'' + id + '\')"></button>' +
+      '</div>' +
+      '<div class="window-title">\u2605 ' + title + '</div>' +
+    '</div>' +
+    '<div class="window-content" id="wc-' + id + '">' + content + '</div>';
   document.body.appendChild(win);
-  windows[id] = { el: win, minimized: false, maximized: false, title };
+  appWindows[id] = { el: win, minimized: false, maximized: false, title: title };
   makeDraggable(win, document.getElementById('tb-' + id));
   makeResizable(win);
   focusWindow(id);
   addTaskbarItem(id, title);
-  win.addEventListener('mousedown', () => focusWindow(id));
+  win.addEventListener('mousedown', function() { focusWindow(id); });
 }
 
 function focusWindow(id) {
-  if (focusedWin) document.getElementById('win-' + focusedWin)?.classList.remove('focused');
+  if (focusedWin) {
+    var prev = document.getElementById('win-' + focusedWin);
+    if (prev) prev.classList.remove('focused');
+  }
   focusedWin = id;
-  const w = document.getElementById('win-' + id);
+  var w = document.getElementById('win-' + id);
   if (w) { w.classList.add('focused'); w.style.zIndex = ++zTop; }
-  document.querySelectorAll('.taskbar-item').forEach(i => i.classList.toggle('focused', i.dataset.win === id));
+  document.querySelectorAll('.taskbar-item').forEach(function(item) {
+    item.classList.toggle('focused', item.dataset.win === id);
+  });
 }
 
 function closeWindow(id) {
-  const w = document.getElementById('win-' + id);
+  var w = document.getElementById('win-' + id);
   if (w) w.remove();
-  delete windows[id];
+  delete appWindows[id];
   removeTaskbarItem(id);
   if (id === 'sysmon' && sysmonInterval) { clearInterval(sysmonInterval); sysmonInterval = null; }
 }
 
 function minimizeWindow(id) {
-  const w = document.getElementById('win-' + id);
+  var w = document.getElementById('win-' + id);
   if (w) w.classList.toggle('minimized');
 }
 
 function maximizeWindow(id) {
-  const win = windows[id];
-  const el = document.getElementById('win-' + id);
+  var win = appWindows[id];
+  var el = document.getElementById('win-' + id);
   if (!el) return;
   if (win.maximized) {
     el.style.left = win.prevLeft; el.style.top = win.prevTop;
@@ -838,78 +867,87 @@ function maximizeWindow(id) {
 }
 
 function addTaskbarItem(id, title) {
-  const tw = document.getElementById('taskbar-windows');
-  const item = document.createElement('div');
+  var tw = document.getElementById('taskbar-windows');
+  var item = document.createElement('div');
   item.className = 'taskbar-item';
   item.dataset.win = id;
   item.textContent = title;
-  item.onclick = () => { const w = document.getElementById('win-' + id); if (w) { w.classList.remove('minimized'); focusWindow(id); } };
+  item.onclick = function() {
+    var w = document.getElementById('win-' + id);
+    if (w) { w.classList.remove('minimized'); focusWindow(id); }
+  };
   tw.appendChild(item);
-  document.querySelector('.dock-btn[onclick*="' + id + '"]')?.classList.add('active');
+  var dockBtn = document.querySelector('.dock-btn[onclick*="\'' + id + '\'"]');
+  if (dockBtn) dockBtn.classList.add('active');
 }
 
 function removeTaskbarItem(id) {
-  document.querySelector(`.taskbar-item[data-win="${id}"]`)?.remove();
-  document.querySelector('.dock-btn[onclick*="' + id + '"]')?.classList.remove('active');
+  var item = document.querySelector('.taskbar-item[data-win="' + id + '"]');
+  if (item) item.remove();
+  var dockBtn = document.querySelector('.dock-btn[onclick*="\'' + id + '\'"]');
+  if (dockBtn) dockBtn.classList.remove('active');
 }
 
 // ===== DRAGGABLE =====
 function makeDraggable(win, handle) {
-  let drag = false, ox, oy;
-  handle.addEventListener('mousedown', e => {
+  var drag = false, ox, oy;
+  handle.addEventListener('mousedown', function(e) {
     if (e.button !== 0) return;
-    drag = true; ox = e.clientX - win.offsetLeft; oy = e.clientY - win.offsetTop;
+    drag = true;
+    ox = e.clientX - win.offsetLeft;
+    oy = e.clientY - win.offsetTop;
     e.preventDefault();
   });
-  document.addEventListener('mousemove', e => {
+  document.addEventListener('mousemove', function(e) {
     if (!drag) return;
-    let x = e.clientX - ox, y = e.clientY - oy;
-    y = Math.max(32, y);
-    win.style.left = x + 'px'; win.style.top = y + 'px';
+    var x = e.clientX - ox;
+    var y = Math.max(32, e.clientY - oy);
+    win.style.left = x + 'px';
+    win.style.top = y + 'px';
   });
-  document.addEventListener('mouseup', () => { drag = false; });
+  document.addEventListener('mouseup', function() { drag = false; });
 }
 
 // ===== RESIZABLE =====
 function makeResizable(win) {
-  const handle = document.createElement('div');
+  var handle = document.createElement('div');
   handle.style.cssText = 'position:absolute;bottom:0;right:0;width:12px;height:12px;cursor:se-resize;z-index:10;';
   handle.innerHTML = '<svg width="12" height="12"><path d="M12 0L12 12L0 12" stroke="#cc0000" stroke-width="1" fill="none" opacity="0.5"/></svg>';
   win.appendChild(handle);
-  let resize = false, ox, oy, ow, oh;
-  handle.addEventListener('mousedown', e => {
+  var resize = false, ox, oy, ow, oh;
+  handle.addEventListener('mousedown', function(e) {
     resize = true; ox = e.clientX; oy = e.clientY;
     ow = win.offsetWidth; oh = win.offsetHeight;
     e.preventDefault(); e.stopPropagation();
   });
-  document.addEventListener('mousemove', e => {
+  document.addEventListener('mousemove', function(e) {
     if (!resize) return;
     win.style.width = Math.max(300, ow + e.clientX - ox) + 'px';
     win.style.height = Math.max(200, oh + e.clientY - oy) + 'px';
   });
-  document.addEventListener('mouseup', () => { resize = false; });
+  document.addEventListener('mouseup', function() { resize = false; });
 }
 
 // ===== APPS =====
 function openApp(id) {
   switch(id) {
-    case 'terminal': openTerminal(); break;
-    case 'files': openFiles(); break;
-    case 'browser': openBrowser(); break;
+    case 'terminal':   openTerminal(); break;
+    case 'files':      openFiles(); break;
+    case 'browser':    openBrowser(); break;
     case 'calculator': openCalculator(); break;
-    case 'calendar': openCalendar(); break;
-    case 'tasks': openTasks(); break;
-    case 'maps': openMaps(); break;
-    case 'sysmon': openSysmon(); break;
-    case 'editor': openEditor(); break;
-    case 'music': openMusic(); break;
-    case 'settings': openSettings(); break;
-    case 'imgview': openImgView(); break;
+    case 'calendar':   openCalendar(); break;
+    case 'tasks':      openTasks(); break;
+    case 'maps':       openMaps(); break;
+    case 'sysmon':     openSysmon(); break;
+    case 'editor':     openEditor(); break;
+    case 'music':      openMusic(); break;
+    case 'settings':   openSettings(); break;
+    case 'imgview':    openImgView(); break;
   }
 }
 
 // ===== TERMINAL =====
-const FS = {
+var FS = {
   '/': { type: 'd', children: ['home','etc','usr','bin','var','proc','tmp'] },
   '/home': { type: 'd', children: ['chosun'] },
   '/home/chosun': { type: 'd', children: ['Documents','Downloads','Desktop','.bashrc','.profile'] },
@@ -925,30 +963,29 @@ const FS = {
   '/var': { type: 'd', children: ['log'] },
   '/var/log': { type: 'd', children: ['syslog','auth.log'] },
 };
-
-let termCwd = '/home/chosun';
+var termCwd = '/home/chosun';
 
 function openTerminal() {
-  createWindow('terminal', 'Terminal — bash', 600, 400, `
-    <div id="term-content">
-      <div id="term-output"></div>
-      <div id="term-input-row">
-        <span id="term-prompt-label">chosun@redstar:~$ </span>
-        <input id="term-input" type="text" autocomplete="off" autofocus spellcheck="false">
-      </div>
-    </div>
-  `);
-  const out = document.getElementById('term-output');
-  const inp = document.getElementById('term-input');
-  const promptLabel = document.getElementById('term-prompt-label');
-  addTermLine(out, '★ 붉은별 OS 4.0 (Mangyongdae)', 'term-info');
+  createWindow('terminal', 'Terminal — bash', 600, 400,
+    '<div id="term-content">' +
+      '<div id="term-output"></div>' +
+      '<div id="term-input-row">' +
+        '<span id="term-prompt-label">chosun@redstar:~$ </span>' +
+        '<input id="term-input" type="text" autocomplete="off" spellcheck="false">' +
+      '</div>' +
+    '</div>'
+  );
+  var out = document.getElementById('term-output');
+  var inp = document.getElementById('term-input');
+  var promptLabel = document.getElementById('term-prompt-label');
+  addTermLine(out, '\u2605 \uBD89\uC740\uBCC4 OS 4.0 (Mangyongdae)', 'term-info');
   addTermLine(out, 'Linux redstar-desktop 3.14.1-redstar #1 SMP', 'term-info');
   addTermLine(out, 'Type "help" for available commands.', 'term-info');
   addTermLine(out, '', '');
 
-  inp.addEventListener('keydown', e => {
+  inp.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
-      const cmd = inp.value.trim();
+      var cmd = inp.value.trim();
       addTermLine(out, promptLabel.textContent + cmd, 'term-cmd');
       if (cmd) { termHistory.unshift(cmd); termHistIdx = -1; }
       processCmd(cmd, out, promptLabel);
@@ -961,23 +998,22 @@ function openTerminal() {
       inp.value = termHistIdx >= 0 ? termHistory[termHistIdx] : '';
     } else if (e.key === 'Tab') {
       e.preventDefault();
-      const parts = inp.value.split(' ');
-      const last = parts[parts.length - 1];
-      // simple tab completion
-      const commands = ['ls','cd','cat','pwd','echo','mkdir','touch','rm','clear','help','uname','whoami','date','ps','top','free','df','ifconfig','ping','history','exit','neofetch','uptime','arch'];
+      var parts = inp.value.split(' ');
+      var last = parts[parts.length - 1];
+      var commands = ['ls','cd','cat','pwd','echo','mkdir','touch','rm','clear','help','uname','whoami','date','ps','top','free','df','ifconfig','ping','history','exit','neofetch','uptime','arch'];
       if (parts.length === 1) {
-        const matches = commands.filter(c => c.startsWith(last));
+        var matches = commands.filter(function(c) { return c.startsWith(last); });
         if (matches.length === 1) inp.value = matches[0] + ' ';
       }
     }
   });
   inp.focus();
-  document.getElementById('wc-terminal').addEventListener('click', () => inp.focus());
+  document.getElementById('wc-terminal').addEventListener('click', function() { inp.focus(); });
 }
 
 function addTermLine(out, text, cls) {
-  const d = document.createElement('div');
-  d.className = 'term-line ' + cls;
+  var d = document.createElement('div');
+  d.className = 'term-line ' + (cls || '');
   d.textContent = text;
   out.appendChild(d);
   out.scrollTop = out.scrollHeight;
@@ -985,11 +1021,10 @@ function addTermLine(out, text, cls) {
 
 function processCmd(cmd, out, promptLabel) {
   if (!cmd) return;
-  const parts = cmd.trim().split(/\s+/);
-  const c = parts[0];
-  const args = parts.slice(1);
-
-  const add = (t, cls='') => addTermLine(out, t, cls);
+  var parts = cmd.trim().split(/\s+/);
+  var c = parts[0];
+  var args = parts.slice(1);
+  function add(t, cls) { addTermLine(out, t, cls || ''); }
 
   switch(c) {
     case 'clear': out.innerHTML = ''; break;
@@ -1003,89 +1038,88 @@ function processCmd(cmd, out, promptLabel) {
     case 'whoami': add('chosun'); break;
     case 'date': add(new Date().toString()); break;
     case 'uname':
-      if (args.includes('-a')) add('Linux redstar-desktop 3.14.1-redstar #1 SMP ' + new Date().toDateString() + ' x86_64 GNU/Linux');
+      if (args.indexOf('-a') >= 0) add('Linux redstar-desktop 3.14.1-redstar #1 SMP ' + new Date().toDateString() + ' x86_64 GNU/Linux');
       else add('Linux');
       break;
     case 'arch': add('x86_64'); break;
     case 'uptime': add('up 3 days, 14:23:07, 1 user, load average: 0.12, 0.08, 0.05'); break;
-    case 'history': termHistory.forEach((h,i) => add(`  ${i+1}  ${h}`)); break;
+    case 'history': termHistory.forEach(function(h, i) { add('  ' + (i+1) + '  ' + h); }); break;
     case 'ls': {
-      const path = args[0] ? resolvePath(args[0]) : termCwd;
-      const node = FS[path];
-      if (!node) { add(`ls: cannot access '${args[0]}': No such file or directory`, 'term-err'); break; }
-      if (node.type === 'f') { add(path.split('/').pop()); break; }
-      node.children.forEach(c => add(c, c.startsWith('.') ? 'term-info' : ''));
+      var lsPath = args[0] ? resolvePath(args[0]) : termCwd;
+      var lsNode = FS[lsPath];
+      if (!lsNode) { add("ls: cannot access '" + args[0] + "': No such file or directory", 'term-err'); break; }
+      if (lsNode.type === 'f') { add(lsPath.split('/').pop()); break; }
+      lsNode.children.forEach(function(child) { add(child, child.startsWith('.') ? 'term-info' : ''); });
       break;
     }
     case 'cd': {
-      const target = args[0] || '/home/chosun';
-      const newPath = target === '~' ? '/home/chosun' : resolvePath(target);
+      var target = args[0] || '/home/chosun';
+      var newPath = (target === '~') ? '/home/chosun' : resolvePath(target);
       if (FS[newPath] && FS[newPath].type === 'd') {
         termCwd = newPath;
-        const rel = termCwd.replace('/home/chosun', '~');
-        promptLabel.textContent = `chosun@redstar:${rel}$ `;
-      } else add(`bash: cd: ${args[0]}: No such file or directory`, 'term-err');
+        var rel = termCwd.replace('/home/chosun', '~');
+        promptLabel.textContent = 'chosun@redstar:' + rel + '$ ';
+      } else add('bash: cd: ' + args[0] + ': No such file or directory', 'term-err');
       break;
     }
     case 'cat': {
       if (!args[0]) { add('cat: missing operand', 'term-err'); break; }
-      const p = resolvePath(args[0]);
-      const n = FS[p];
-      if (!n) { add(`cat: ${args[0]}: No such file or directory`, 'term-err'); }
-      else if (n.type === 'd') { add(`cat: ${args[0]}: Is a directory`, 'term-err'); }
-      else { n.content.split('\n').forEach(l => add(l)); }
+      var catPath = resolvePath(args[0]);
+      var catNode = FS[catPath];
+      if (!catNode) { add('cat: ' + args[0] + ': No such file or directory', 'term-err'); }
+      else if (catNode.type === 'd') { add('cat: ' + args[0] + ': Is a directory', 'term-err'); }
+      else { catNode.content.split('\n').forEach(function(l) { add(l); }); }
       break;
     }
     case 'echo': add(args.join(' ')); break;
     case 'mkdir': {
       if (!args[0]) { add('mkdir: missing operand', 'term-err'); break; }
-      const p = resolvePath(args[0]);
-      const parent = p.substring(0, p.lastIndexOf('/')) || '/';
-      if (FS[parent]) {
-        FS[p] = { type: 'd', children: [] };
-        if (!FS[parent].children.includes(args[0].split('/').pop())) FS[parent].children.push(args[0].split('/').pop());
-        add(`mkdir: created directory '${args[0]}'`, 'term-info');
-      } else add(`mkdir: cannot create directory '${args[0]}': No such file or directory`, 'term-err');
+      var mkPath = resolvePath(args[0]);
+      var mkParent = mkPath.substring(0, mkPath.lastIndexOf('/')) || '/';
+      if (FS[mkParent]) {
+        FS[mkPath] = { type: 'd', children: [] };
+        var mkName = args[0].split('/').pop();
+        if (FS[mkParent].children.indexOf(mkName) < 0) FS[mkParent].children.push(mkName);
+        add("mkdir: created directory '" + args[0] + "'", 'term-info');
+      } else add("mkdir: cannot create directory '" + args[0] + "': No such file or directory", 'term-err');
       break;
     }
     case 'touch': {
       if (!args[0]) { add('touch: missing file operand', 'term-err'); break; }
-      const p = resolvePath(args[0]);
-      if (!FS[p]) FS[p] = { type: 'f', content: '' };
+      var touchPath = resolvePath(args[0]);
+      if (!FS[touchPath]) FS[touchPath] = { type: 'f', content: '' };
       break;
     }
     case 'rm': {
       if (!args[0]) { add('rm: missing operand', 'term-err'); break; }
-      const p = resolvePath(args[0]);
-      if (!FS[p]) { add(`rm: cannot remove '${args[0]}': No such file or directory`, 'term-err'); }
-      else { delete FS[p]; add(`removed '${args[0]}'`, 'term-info'); }
+      var rmPath = resolvePath(args[0]);
+      if (!FS[rmPath]) { add("rm: cannot remove '" + args[0] + "': No such file or directory", 'term-err'); }
+      else { delete FS[rmPath]; add("removed '" + args[0] + "'", 'term-info'); }
       break;
     }
     case 'ps': add('  PID TTY          TIME CMD\n  1   ?        00:00:01 systemd\n  234 ?        00:00:00 kworker\n  890 tty1     00:00:00 bash\n  891 tty1     00:00:00 ps'); break;
     case 'top': add('[top] Processes: 89, load: 0.12  — (interactive top not supported, use System Monitor)', 'term-info'); break;
     case 'free': add('              total        used        free      shared\nMem:        4096000     1382400     2713600       45312\nSwap:       2048000           0     2048000'); break;
     case 'df': add('Filesystem     1K-blocks    Used Available Use% Mounted on\n/dev/sda1       51200000 12800000  38400000  25% /\ntmpfs            2048000       0   2048000   0% /tmp'); break;
-    case 'ifconfig': add('eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>\n        inet 10.100.0.5  netmask 255.255.0.0\n        ether 00:1a:2b:3c:4d:5e  txqueuelen 1000\n        RX packets 83721  bytes 92847361\n        TX packets 45821  bytes 8294736\nlo: flags=73<UP,LOOPBACK,RUNNING>\n        inet 127.0.0.1  netmask 255.0.0.0'); break;
+    case 'ifconfig': add('eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>\n        inet 10.100.0.5  netmask 255.255.0.0\n        ether 00:1a:2b:3c:4d:5e  txqueuelen 1000\nlo: flags=73<UP,LOOPBACK,RUNNING>\n        inet 127.0.0.1  netmask 255.0.0.0'); break;
     case 'ping':
       if (!args[0]) { add('ping: missing host operand', 'term-err'); break; }
-      add(`PING ${args[0]}: 56 data bytes`, 'term-info');
-      for (let i = 0; i < 4; i++) add(`64 bytes from ${args[0]}: icmp_seq=${i+1} ttl=64 time=${(Math.random()*10+2).toFixed(1)} ms`);
-      add(`--- ${args[0]} ping statistics ---`);
+      add('PING ' + args[0] + ': 56 data bytes', 'term-info');
+      for (var pi = 0; pi < 4; pi++) add('64 bytes from ' + args[0] + ': icmp_seq=' + (pi+1) + ' ttl=64 time=' + (Math.random()*10+2).toFixed(1) + ' ms');
+      add('--- ' + args[0] + ' ping statistics ---');
       add('4 packets transmitted, 4 received, 0% packet loss');
       break;
     case 'neofetch':
-      add('       ★★★★★★       chosun@redstar-desktop', 'term-info');
-      add('      ★★★★★★★★★     ---------------------------', 'term-info');
-      add('     ★★★★★★★★★★★    OS: RedStar OS 4.0 x86_64', 'term-info');
-      add('    ★★★★★★★★★★★★★   Kernel: 3.14.1-redstar', 'term-info');
-      add('   ★★★★★★★★★★★★★★★  Uptime: 3 days, 14 hours', 'term-info');
-      add('     ★★★★★★★★★★★    Shell: bash 4.3.0', 'term-info');
-      add('      ★★★★★★★★★     Resolution: 1920x1080', 'term-info');
-      add('       ★★★★★★       CPU: Intel i5-3470 (4) @ 3.2GHz', 'term-info');
-      add('                     Memory: 1353MiB / 4000MiB', 'term-info');
+      add('       \u2605\u2605\u2605\u2605\u2605\u2605       chosun@redstar-desktop', 'term-info');
+      add('      \u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605     OS: RedStar OS 4.0 x86_64', 'term-info');
+      add('     \u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605    Kernel: 3.14.1-redstar', 'term-info');
+      add('    \u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605   Uptime: 3 days, 14 hours', 'term-info');
+      add('   \u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605  Shell: bash 4.3.0', 'term-info');
+      add('     \u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605    CPU: Intel i5-3470 (4) @ 3.2GHz', 'term-info');
+      add('      \u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605\u2605     Memory: 1353MiB / 4000MiB', 'term-info');
       break;
     case 'exit': closeWindow('terminal'); break;
-    default: add(`bash: ${c}: command not found`, 'term-err');
+    default: add('bash: ' + c + ': command not found', 'term-err');
   }
 }
 
@@ -1098,201 +1132,212 @@ function resolvePath(p) {
 }
 
 // ===== FILE MANAGER =====
-let fmCwd = '/home/chosun';
-let fmSelected = null;
+var fmCwd = '/home/chosun';
+var fmSelected = null;
+var fmBackStack = [];
 
 function openFiles() {
-  createWindow('files', 'File Manager', 700, 450, `
-    <div id="files-content">
-      <div class="files-sidebar">
-        <div class="sidebar-item active" onclick="fmNavigate('/home/chosun')">🏠 Home</div>
-        <div class="sidebar-item" onclick="fmNavigate('/home/chosun/Documents')">📄 Documents</div>
-        <div class="sidebar-item" onclick="fmNavigate('/home/chosun/Downloads')">⬇️ Downloads</div>
-        <div class="sidebar-item" onclick="fmNavigate('/')">💻 Computer</div>
-        <div class="sidebar-item" onclick="fmNavigate('/etc')">⚙️ System</div>
-        <div class="sidebar-item" onclick="fmNavigate('/tmp')">🗑️ Trash</div>
-      </div>
-      <div style="flex:1;display:flex;flex-direction:column;">
-        <div class="files-toolbar">
-          <button onclick="fmBack()">◀ Back</button>
-          <button onclick="fmNavigate('/')">🏠</button>
-          <input class="files-path" id="fm-path" value="${fmCwd}" onkeydown="if(event.key==='Enter')fmNavigate(this.value)">
-          <button onclick="fmNewFolder()">📁 New</button>
-        </div>
-        <div class="files-main" id="fm-main"></div>
-        <div class="files-statusbar" id="fm-status"></div>
-      </div>
-    </div>
-  `);
+  createWindow('files', 'File Manager', 700, 450,
+    '<div id="files-content">' +
+      '<div class="files-sidebar">' +
+        '<div class="sidebar-item active" onclick="fmNavigate(\'/home/chosun\')">🏠 Home</div>' +
+        '<div class="sidebar-item" onclick="fmNavigate(\'/home/chosun/Documents\')">📄 Documents</div>' +
+        '<div class="sidebar-item" onclick="fmNavigate(\'/home/chosun/Downloads\')">⬇️ Downloads</div>' +
+        '<div class="sidebar-item" onclick="fmNavigate(\'/\')">💻 Computer</div>' +
+        '<div class="sidebar-item" onclick="fmNavigate(\'/etc\')">⚙️ System</div>' +
+        '<div class="sidebar-item" onclick="fmNavigate(\'/tmp\')">🗑️ Trash</div>' +
+      '</div>' +
+      '<div style="flex:1;display:flex;flex-direction:column;">' +
+        '<div class="files-toolbar">' +
+          '<button onclick="fmBack()">◀ Back</button>' +
+          '<button onclick="fmNavigate(\'/\')">🏠</button>' +
+          '<input class="files-path" id="fm-path" value="' + fmCwd + '" onkeydown="if(event.key===\'Enter\')fmNavigate(this.value)">' +
+          '<button onclick="fmNewFolder()">📁 New</button>' +
+        '</div>' +
+        '<div class="files-main" id="fm-main"></div>' +
+        '<div class="files-statusbar" id="fm-status"></div>' +
+      '</div>' +
+    '</div>'
+  );
   fmRender();
 }
 
-let fmBackStack = [];
 function fmNavigate(p) {
   fmBackStack.push(fmCwd);
   fmCwd = p;
-  document.getElementById('fm-path').value = p;
+  var pathEl = document.getElementById('fm-path');
+  if (pathEl) pathEl.value = p;
   fmRender();
 }
 function fmBack() {
-  if (fmBackStack.length) { fmCwd = fmBackStack.pop(); document.getElementById('fm-path').value = fmCwd; fmRender(); }
+  if (fmBackStack.length) {
+    fmCwd = fmBackStack.pop();
+    var pathEl = document.getElementById('fm-path');
+    if (pathEl) pathEl.value = fmCwd;
+    fmRender();
+  }
 }
 
 function fmRender() {
-  const main = document.getElementById('fm-main');
-  const status = document.getElementById('fm-status');
+  var main = document.getElementById('fm-main');
+  var status = document.getElementById('fm-status');
   if (!main) return;
-  const node = FS[fmCwd];
+  var node = FS[fmCwd];
   if (!node) { main.innerHTML = '<p style="padding:20px;color:var(--text-dim)">Path not found</p>'; return; }
-  if (node.type === 'f') { main.innerHTML = `<div class="browser-page"><pre style="color:var(--text)">${node.content}</pre></div>`; return; }
+  if (node.type === 'f') { main.innerHTML = '<div class="browser-page"><pre style="color:var(--text)">' + node.content + '</pre></div>'; return; }
 
-  const icons = { Documents: '📄', Downloads: '⬇️', Desktop: '🖥️', '.bashrc': '⚙️', '.profile': '⚙️', 'state_report.txt': '📝', 'memo.txt': '📝', home: '🏠', etc: '⚙️', usr: '📦', bin: '⚙️', var: '📋', proc: '🔧', tmp: '🗑️', log: '📋', syslog: '📝', 'auth.log': '📝', chosun: '👤', 'redstar-release': '📄', hostname: '📄', passwd: '🔒', fstab: '📄', cpuinfo: '📄', meminfo: '📄', version: '📄' };
+  var icons = { Documents:'📄', Downloads:'⬇️', Desktop:'🖥️', '.bashrc':'⚙️', '.profile':'⚙️', 'state_report.txt':'📝', 'memo.txt':'📝', home:'🏠', etc:'⚙️', usr:'📦', bin:'⚙️', var:'📋', proc:'🔧', tmp:'🗑️', log:'📋', syslog:'📝', 'auth.log':'📝', chosun:'👤', 'redstar-release':'📄', hostname:'📄', passwd:'🔒', fstab:'📄', cpuinfo:'📄', meminfo:'📄', version:'📄' };
 
-  let html = '<div class="file-grid">';
-  if (fmCwd !== '/') html += `<div class="file-item" ondblclick="fmNavigate('${fmCwd.substring(0,fmCwd.lastIndexOf('/')||'/')}')"><div class="icon">📁</div><div class="name">..</div></div>`;
-  node.children.forEach(child => {
-    const cp = (fmCwd === '/' ? '' : fmCwd) + '/' + child;
-    const cn = FS[cp];
-    const icon = icons[child] || (cn?.type === 'd' ? '📁' : '📄');
-    html += `<div class="file-item" ondblclick="fmNavigate('${cp}')" onclick="fmSelect('${child}',this)">
-      <div class="icon">${icon}</div>
-      <div class="name">${child}</div>
-    </div>`;
+  var html = '<div class="file-grid">';
+  if (fmCwd !== '/') {
+    var parentPath = fmCwd.substring(0, fmCwd.lastIndexOf('/')) || '/';
+    html += '<div class="file-item" ondblclick="fmNavigate(\'' + parentPath + '\')"><div class="icon">📁</div><div class="name">..</div></div>';
+  }
+  node.children.forEach(function(child) {
+    var cp = (fmCwd === '/' ? '' : fmCwd) + '/' + child;
+    var cn = FS[cp];
+    var icon = icons[child] || (cn && cn.type === 'd' ? '📁' : '📄');
+    html += '<div class="file-item" ondblclick="fmNavigate(\'' + cp + '\')" onclick="fmSelect(\'' + child + '\',this)">' +
+      '<div class="icon">' + icon + '</div>' +
+      '<div class="name">' + child + '</div>' +
+    '</div>';
   });
   html += '</div>';
   main.innerHTML = html;
-  status.textContent = `${node.children.length} items in ${fmCwd}`;
+  if (status) status.textContent = node.children.length + ' items in ' + fmCwd;
 }
 
 function fmSelect(name, el) {
-  document.querySelectorAll('.file-item.selected').forEach(e => e.classList.remove('selected'));
+  document.querySelectorAll('.file-item.selected').forEach(function(e) { e.classList.remove('selected'); });
   el.classList.add('selected');
   fmSelected = name;
 }
 
 function fmNewFolder() {
-  const name = prompt('Folder name:');
+  var name = prompt('Folder name:');
   if (!name) return;
-  const p = (fmCwd === '/' ? '' : fmCwd) + '/' + name;
+  var p = (fmCwd === '/' ? '' : fmCwd) + '/' + name;
   FS[p] = { type: 'd', children: [] };
   FS[fmCwd].children.push(name);
   fmRender();
 }
 
 // ===== CALCULATOR =====
+// NOTE: function names calcOp, calcVal etc. no longer conflict with variable names
 function openCalculator() {
-  createWindow('calculator', 'Calculator', 280, 420, `
-    <div id="calc-content">
-      <div id="calc-display">
-        <div id="calc-expr"></div>
-        <div id="calc-value">0</div>
-      </div>
-      <div class="calc-grid">
-        <button class="calc-btn fn" onclick="calcFn('C')">C</button>
-        <button class="calc-btn fn" onclick="calcFn('+/-')">±</button>
-        <button class="calc-btn fn" onclick="calcFn('%')">%</button>
-        <button class="calc-btn op" onclick="calcOp('/')">÷</button>
-        <button class="calc-btn" onclick="calcDigit('7')">7</button>
-        <button class="calc-btn" onclick="calcDigit('8')">8</button>
-        <button class="calc-btn" onclick="calcDigit('9')">9</button>
-        <button class="calc-btn op" onclick="calcOp('*')">×</button>
-        <button class="calc-btn" onclick="calcDigit('4')">4</button>
-        <button class="calc-btn" onclick="calcDigit('5')">5</button>
-        <button class="calc-btn" onclick="calcDigit('6')">6</button>
-        <button class="calc-btn op" onclick="calcOp('-')">−</button>
-        <button class="calc-btn" onclick="calcDigit('1')">1</button>
-        <button class="calc-btn" onclick="calcDigit('2')">2</button>
-        <button class="calc-btn" onclick="calcDigit('3')">3</button>
-        <button class="calc-btn op" onclick="calcOp('+')">+</button>
-        <button class="calc-btn wide" onclick="calcDigit('0')">0</button>
-        <button class="calc-btn" onclick="calcDigit('.')">.</button>
-        <button class="calc-btn eq" onclick="calcEquals()">=</button>
-      </div>
-    </div>
-  `);
-  calcVal = '0'; calcExpr = ''; calcOp = null; calcPrev = null;
+  createWindow('calculator', 'Calculator', 280, 420,
+    '<div id="calc-content">' +
+      '<div id="calc-display">' +
+        '<div id="calc-expr"></div>' +
+        '<div id="calc-value">0</div>' +
+      '</div>' +
+      '<div class="calc-grid">' +
+        '<button class="calc-btn fn" onclick="calcFn(\'C\')">C</button>' +
+        '<button class="calc-btn fn" onclick="calcFn(\'+/-\')">\xb1</button>' +
+        '<button class="calc-btn fn" onclick="calcFn(\'%\')">%</button>' +
+        '<button class="calc-btn op" onclick="calcOpBtn(\'/\')">\xf7</button>' +
+        '<button class="calc-btn" onclick="calcDigit(\'7\')">7</button>' +
+        '<button class="calc-btn" onclick="calcDigit(\'8\')">8</button>' +
+        '<button class="calc-btn" onclick="calcDigit(\'9\')">9</button>' +
+        '<button class="calc-btn op" onclick="calcOpBtn(\'*\')">\xd7</button>' +
+        '<button class="calc-btn" onclick="calcDigit(\'4\')">4</button>' +
+        '<button class="calc-btn" onclick="calcDigit(\'5\')">5</button>' +
+        '<button class="calc-btn" onclick="calcDigit(\'6\')">6</button>' +
+        '<button class="calc-btn op" onclick="calcOpBtn(\'-\')">\u2212</button>' +
+        '<button class="calc-btn" onclick="calcDigit(\'1\')">1</button>' +
+        '<button class="calc-btn" onclick="calcDigit(\'2\')">2</button>' +
+        '<button class="calc-btn" onclick="calcDigit(\'3\')">3</button>' +
+        '<button class="calc-btn op" onclick="calcOpBtn(\'+\')">+</button>' +
+        '<button class="calc-btn wide" onclick="calcDigit(\'0\')">0</button>' +
+        '<button class="calc-btn" onclick="calcDigit(\'.\')">.</button>' +
+        '<button class="calc-btn eq" onclick="calcEquals()">=</button>' +
+      '</div>' +
+    '</div>'
+  );
+  calcCurrentVal = '0'; calcCurrentExpr = ''; calcCurrentOp = null; calcPrevVal = null;
+  calcUpdateDisplay();
 }
 
 function calcUpdateDisplay() {
-  const v = document.getElementById('calc-value');
-  const e = document.getElementById('calc-expr');
-  if (v) v.textContent = calcVal;
-  if (e) e.textContent = calcExpr;
+  var v = document.getElementById('calc-value');
+  var e = document.getElementById('calc-expr');
+  if (v) v.textContent = calcCurrentVal;
+  if (e) e.textContent = calcCurrentExpr;
 }
 function calcDigit(d) {
-  if (d === '.' && calcVal.includes('.')) return;
-  calcVal = calcVal === '0' && d !== '.' ? d : calcVal + d;
+  if (d === '.' && calcCurrentVal.includes('.')) return;
+  calcCurrentVal = (calcCurrentVal === '0' && d !== '.') ? d : calcCurrentVal + d;
   calcUpdateDisplay();
 }
-function calcOp(op) {
-  calcExpr = calcVal + ' ' + op;
-  calcPrev = parseFloat(calcVal);
-  calcOp = op;
-  calcVal = '0';
+// FIX: renamed from calcOp to calcOpBtn to avoid conflict with the old variable name
+function calcOpBtn(op) {
+  calcCurrentExpr = calcCurrentVal + ' ' + op;
+  calcPrevVal = parseFloat(calcCurrentVal);
+  calcCurrentOp = op;
+  calcCurrentVal = '0';
   calcUpdateDisplay();
 }
 function calcEquals() {
-  if (calcOp === null || calcPrev === null) return;
-  const cur = parseFloat(calcVal);
-  let res;
-  switch(calcOp) {
-    case '+': res = calcPrev + cur; break;
-    case '-': res = calcPrev - cur; break;
-    case '*': res = calcPrev * cur; break;
-    case '/': res = cur === 0 ? 'Error' : calcPrev / cur; break;
+  if (calcCurrentOp === null || calcPrevVal === null) return;
+  var cur = parseFloat(calcCurrentVal);
+  var res;
+  switch(calcCurrentOp) {
+    case '+': res = calcPrevVal + cur; break;
+    case '-': res = calcPrevVal - cur; break;
+    case '*': res = calcPrevVal * cur; break;
+    case '/': res = cur === 0 ? 'Error' : calcPrevVal / cur; break;
   }
-  calcExpr = calcExpr + ' ' + cur + ' =';
-  calcVal = typeof res === 'number' ? (Number.isInteger(res) ? String(res) : res.toFixed(8).replace(/\.?0+$/, '')) : res;
-  calcOp = null; calcPrev = null;
+  calcCurrentExpr = calcCurrentExpr + ' ' + cur + ' =';
+  calcCurrentVal = typeof res === 'number' ? (Number.isInteger(res) ? String(res) : res.toFixed(8).replace(/\.?0+$/, '')) : res;
+  calcCurrentOp = null; calcPrevVal = null;
   calcUpdateDisplay();
 }
 function calcFn(fn) {
-  if (fn === 'C') { calcVal = '0'; calcExpr = ''; calcOp = null; calcPrev = null; }
-  else if (fn === '+/-') { calcVal = String(-parseFloat(calcVal)); }
-  else if (fn === '%') { calcVal = String(parseFloat(calcVal) / 100); }
+  if (fn === 'C') { calcCurrentVal = '0'; calcCurrentExpr = ''; calcCurrentOp = null; calcPrevVal = null; }
+  else if (fn === '+/-') { calcCurrentVal = String(-parseFloat(calcCurrentVal)); }
+  else if (fn === '%') { calcCurrentVal = String(parseFloat(calcCurrentVal) / 100); }
   calcUpdateDisplay();
 }
 
 // ===== CALENDAR =====
-const calEvents = {
+var calEvents = {
   '2026-4-1': ['April Fools / System Check'],
-  '2026-4-15': ['Day of the Sun — 태양절 ★'],
+  '2026-4-15': ['Day of the Sun — \ud0dc\uc591\uc808 \u2605'],
   '2026-4-25': ['Military Foundation Day'],
 };
 
 function openCalendar() {
-  createWindow('calendar', 'Calendar', 500, 420, `<div id="cal-content"></div>`);
+  createWindow('calendar', 'Calendar', 500, 420, '<div id="cal-content"></div>');
   renderCalendar();
 }
 
 function renderCalendar() {
-  const el = document.getElementById('cal-content');
+  var el = document.getElementById('cal-content');
   if (!el) return;
-  const year = calDate.getFullYear(), month = calDate.getMonth();
-  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const first = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const today = new Date();
+  var year = calDate.getFullYear(), month = calDate.getMonth();
+  var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var first = new Date(year, month, 1).getDay();
+  var daysInMonth = new Date(year, month + 1, 0).getDate();
+  var today = new Date();
 
-  let html = `<div class="cal-header">
-    <div class="cal-nav"><button onclick="calPrev()">◀</button></div>
-    <h2>${months[month]} ${year}</h2>
-    <div class="cal-nav"><button onclick="calNext()">▶</button></div>
-  </div>
-  <div class="cal-grid">`;
-  days.forEach(d => html += `<div class="cal-day-header">${d}</div>`);
-  for (let i = 0; i < first; i++) html += '<div class="cal-cell other-month"></div>';
-  for (let d = 1; d <= daysInMonth; d++) {
-    const key = `${year}-${month+1}-${d}`;
-    const isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
-    const hasEv = calEvents[key];
-    html += `<div class="cal-cell ${isToday ? 'today' : ''} ${hasEv ? 'has-event' : ''}" onclick="calSelectDay(${d})">${d}</div>`;
+  var html = '<div class="cal-header">' +
+    '<div class="cal-nav"><button onclick="calPrev()">◀</button></div>' +
+    '<h2>' + months[month] + ' ' + year + '</h2>' +
+    '<div class="cal-nav"><button onclick="calNext()">▶</button></div>' +
+  '</div><div class="cal-grid">';
+  days.forEach(function(d) { html += '<div class="cal-day-header">' + d + '</div>'; });
+  for (var i = 0; i < first; i++) html += '<div class="cal-cell other-month"></div>';
+  for (var d = 1; d <= daysInMonth; d++) {
+    var key = year + '-' + (month+1) + '-' + d;
+    var isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+    var hasEv = calEvents[key];
+    html += '<div class="cal-cell ' + (isToday ? 'today' : '') + ' ' + (hasEv ? 'has-event' : '') + '" onclick="calSelectDay(' + d + ')">' + d + '</div>';
   }
   html += '</div><div class="cal-events"><h3>Events this month:</h3>';
-  Object.entries(calEvents).filter(([k]) => k.startsWith(`${year}-${month+1}-`)).forEach(([k, evs]) => {
-    const day = k.split('-')[2];
-    evs.forEach(ev => html += `<div class="cal-event-item">📌 Day ${day}: ${ev}</div>`);
+  Object.entries(calEvents).filter(function(entry) { return entry[0].startsWith(year + '-' + (month+1) + '-'); }).forEach(function(entry) {
+    var day = entry[0].split('-')[2];
+    entry[1].forEach(function(ev) { html += '<div class="cal-event-item">📌 Day ' + day + ': ' + ev + '</div>'; });
   });
   html += '</div>';
   el.innerHTML = html;
@@ -1301,170 +1346,115 @@ function renderCalendar() {
 function calPrev() { calDate.setMonth(calDate.getMonth() - 1); renderCalendar(); }
 function calNext() { calDate.setMonth(calDate.getMonth() + 1); renderCalendar(); }
 function calSelectDay(d) {
-  const key = `${calDate.getFullYear()}-${calDate.getMonth()+1}-${d}`;
-  const evs = calEvents[key];
+  var key = calDate.getFullYear() + '-' + (calDate.getMonth()+1) + '-' + d;
+  var evs = calEvents[key];
   if (evs) showNotif('Calendar', evs.join(', '));
 }
 
 // ===== TASKS =====
 function openTasks() {
-  createWindow('tasks', 'Task Manager', 420, 480, `
-    <div id="tasks-content">
-      <h3 style="font-size:12px;color:var(--red);font-family:'Orbitron';margin-bottom:8px;">★ TASK MANAGER</h3>
-      <div class="tasks-add">
-        <input id="task-input" placeholder="New task..." onkeydown="if(event.key==='Enter')addTask()">
-        <select id="task-pri" style="padding:6px;background:#0a0000;border:1px solid var(--border);color:var(--text);font-family:inherit;border-radius:4px;">
-          <option value="high">High</option>
-          <option value="med" selected>Medium</option>
-          <option value="low">Low</option>
-        </select>
-        <button onclick="addTask()">Add</button>
-      </div>
-      <div style="display:flex;gap:8px;font-size:10px;color:var(--text-dim);font-family:'Share Tech Mono';">
-        <span id="tasks-total"></span>
-        <span id="tasks-done-ct"></span>
-      </div>
-      <div class="task-list" id="task-list"></div>
-    </div>
-  `);
+  createWindow('tasks', 'Task Manager', 420, 480,
+    '<div id="tasks-content">' +
+      '<h3 style="font-size:12px;color:var(--red);font-family:\'Orbitron\';margin-bottom:8px;">\u2605 TASK MANAGER</h3>' +
+      '<div class="tasks-add">' +
+        '<input id="task-input" placeholder="New task..." onkeydown="if(event.key===\'Enter\')addTask()">' +
+        '<select id="task-pri" style="padding:6px;background:#0a0000;border:1px solid var(--border);color:var(--text);font-family:inherit;border-radius:4px;">' +
+          '<option value="high">High</option>' +
+          '<option value="med" selected>Medium</option>' +
+          '<option value="low">Low</option>' +
+        '</select>' +
+        '<button onclick="addTask()">Add</button>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;font-size:10px;color:var(--text-dim);font-family:\'Share Tech Mono\';"><span id="tasks-total"></span><span id="tasks-done-ct"></span></div>' +
+      '<div class="task-list" id="task-list"></div>' +
+    '</div>'
+  );
   renderTasks();
 }
 
 function renderTasks() {
-  const list = document.getElementById('task-list');
+  var list = document.getElementById('task-list');
   if (!list) return;
   list.innerHTML = '';
-  tasks.forEach(t => {
-    const item = document.createElement('div');
+  tasks.forEach(function(t) {
+    var item = document.createElement('div');
     item.className = 'task-item' + (t.done ? ' done' : '');
-    item.innerHTML = `
-      <div class="task-check ${t.done ? 'checked' : ''}" onclick="toggleTask(${t.id})">${t.done ? '✓' : ''}</div>
-      <span style="flex:1">${t.text}</span>
-      <span class="task-priority ${t.priority}">${t.priority.toUpperCase()}</span>
-      <span class="task-del" onclick="deleteTask(${t.id})">×</span>
-    `;
+    item.innerHTML =
+      '<div class="task-check ' + (t.done ? 'checked' : '') + '" onclick="toggleTask(' + t.id + ')">' + (t.done ? '✓' : '') + '</div>' +
+      '<span style="flex:1">' + t.text + '</span>' +
+      '<span class="task-priority ' + t.priority + '">' + t.priority.toUpperCase() + '</span>' +
+      '<span class="task-del" onclick="deleteTask(' + t.id + ')">×</span>';
     list.appendChild(item);
   });
-  const total = document.getElementById('tasks-total');
-  const done = document.getElementById('tasks-done-ct');
-  if (total) total.textContent = `Total: ${tasks.length}`;
-  if (done) done.textContent = `Done: ${tasks.filter(t => t.done).length}`;
+  var total = document.getElementById('tasks-total');
+  var done = document.getElementById('tasks-done-ct');
+  if (total) total.textContent = 'Total: ' + tasks.length;
+  if (done) done.textContent = 'Done: ' + tasks.filter(function(t) { return t.done; }).length;
 }
 
 function addTask() {
-  const inp = document.getElementById('task-input');
-  const pri = document.getElementById('task-pri');
-  if (!inp?.value.trim()) return;
+  var inp = document.getElementById('task-input');
+  var pri = document.getElementById('task-pri');
+  if (!inp || !inp.value.trim()) return;
   tasks.push({ id: taskIdSeq++, text: inp.value.trim(), done: false, priority: pri.value });
   inp.value = '';
   renderTasks();
 }
 
 function toggleTask(id) {
-  const t = tasks.find(t => t.id === id);
+  var t = tasks.find(function(t) { return t.id === id; });
   if (t) t.done = !t.done;
   renderTasks();
 }
 
 function deleteTask(id) {
-  tasks = tasks.filter(t => t.id !== id);
+  tasks = tasks.filter(function(t) { return t.id !== id; });
   renderTasks();
 }
 
 // ===== BROWSER =====
-const browserPages = {
-  'redstar://home': () => `<div class="browser-page">
-    <h1>★ 붉은별 Portal</h1>
-    <p>Welcome to the RedStar OS internal network portal.</p>
-    <h2>📰 Today's News</h2>
-    <p>System update v4.0.1 released — stability improvements for all users.</p>
-    <p>RedStar OS wins Best Desktop Environment award for the 10th consecutive year.</p>
-    <h2>🔗 Quick Links</h2>
-    <p><a onclick="loadPage('redstar://news')">National News Network</a></p>
-    <p><a onclick="loadPage('redstar://education')">Education Portal</a></p>
-    <p><a onclick="loadPage('redstar://library')">Digital Library</a></p>
-    <p><a onclick="loadPage('redstar://services')">Government Services</a></p>
-  </div>`,
-  'redstar://news': () => `<div class="browser-page">
-    <h1>📰 Korean Central News Network</h1>
-    <h2>Headlines</h2>
-    <p>▶ New agricultural achievements reported across all provinces</p>
-    <p>▶ Technology development plan exceeds annual targets</p>
-    <p>▶ Cultural festival season begins with record participation</p>
-    <p>▶ RedStar OS v4.0 deployment complete nationwide</p>
-    <p><a onclick="loadPage('redstar://home')">← Back to Home</a></p>
-  </div>`,
-  'redstar://education': () => `<div class="browser-page">
-    <h1>📚 Education Portal</h1>
-    <h2>Available Courses</h2>
-    <p>▶ Linux System Administration</p>
-    <p>▶ Korean Language & Literature</p>
-    <p>▶ Mathematics & Sciences</p>
-    <p>▶ Computer Programming (C, Python)</p>
-    <p>▶ RedStar OS User Training</p>
-    <p><a onclick="loadPage('redstar://home')">← Back to Home</a></p>
-  </div>`,
-  'redstar://library': () => `<div class="browser-page">
-    <h1>📖 Digital Library</h1>
-    <h2>Featured Collections</h2>
-    <p>▶ Classical Korean Literature — 2,847 works</p>
-    <p>▶ Science & Technology — 15,412 documents</p>
-    <p>▶ History & Culture — 8,931 volumes</p>
-    <p>▶ Technical Manuals — 3,201 documents</p>
-    <p><a onclick="loadPage('redstar://home')">← Back to Home</a></p>
-  </div>`,
-  'redstar://services': () => `<div class="browser-page">
-    <h1>🏛️ Government Services</h1>
-    <h2>Available Services</h2>
-    <p>▶ Citizen Registry System</p>
-    <p>▶ Public Transport Schedules</p>
-    <p>▶ Healthcare Appointment System</p>
-    <p>▶ Official Document Requests</p>
-    <p>▶ Community Bulletin Board</p>
-    <p><a onclick="loadPage('redstar://home')">← Back to Home</a></p>
-  </div>`,
+var browserPages = {
+  'redstar://home': function() { return '<div class="browser-page"><h1>\u2605 \uBD89\uC740\uBCC4 Portal</h1><p>Welcome to the RedStar OS internal network portal.</p><h2>📰 Today\'s News</h2><p>System update v4.0.1 released — stability improvements for all users.</p><p>RedStar OS wins Best Desktop Environment award for the 10th consecutive year.</p><h2>🔗 Quick Links</h2><p><a onclick="loadPage(\'redstar://news\')">National News Network</a></p><p><a onclick="loadPage(\'redstar://education\')">Education Portal</a></p><p><a onclick="loadPage(\'redstar://library\')">Digital Library</a></p><p><a onclick="loadPage(\'redstar://services\')">Government Services</a></p></div>'; },
+  'redstar://news': function() { return '<div class="browser-page"><h1>📰 Korean Central News Network</h1><h2>Headlines</h2><p>▶ New agricultural achievements reported across all provinces</p><p>▶ Technology development plan exceeds annual targets</p><p>▶ Cultural festival season begins with record participation</p><p>▶ RedStar OS v4.0 deployment complete nationwide</p><p><a onclick="loadPage(\'redstar://home\')">← Back to Home</a></p></div>'; },
+  'redstar://education': function() { return '<div class="browser-page"><h1>📚 Education Portal</h1><h2>Available Courses</h2><p>▶ Linux System Administration</p><p>▶ Korean Language & Literature</p><p>▶ Mathematics & Sciences</p><p>▶ Computer Programming (C, Python)</p><p>▶ RedStar OS User Training</p><p><a onclick="loadPage(\'redstar://home\')">← Back to Home</a></p></div>'; },
+  'redstar://library': function() { return '<div class="browser-page"><h1>📖 Digital Library</h1><h2>Featured Collections</h2><p>▶ Classical Korean Literature — 2,847 works</p><p>▶ Science & Technology — 15,412 documents</p><p>▶ History & Culture — 8,931 volumes</p><p>▶ Technical Manuals — 3,201 documents</p><p><a onclick="loadPage(\'redstar://home\')">← Back to Home</a></p></div>'; },
+  'redstar://services': function() { return '<div class="browser-page"><h1>🏛️ Government Services</h1><h2>Available Services</h2><p>▶ Citizen Registry System</p><p>▶ Public Transport Schedules</p><p>▶ Healthcare Appointment System</p><p>▶ Official Document Requests</p><p>▶ Community Bulletin Board</p><p><a onclick="loadPage(\'redstar://home\')">← Back to Home</a></p></div>'; },
 };
 
 function openBrowser() {
-  createWindow('browser', 'Web Browser', 750, 500, `
-    <div id="browser-content">
-      <div class="browser-toolbar">
-        <button class="browser-nav-btn" onclick="browserBack()">◀</button>
-        <button class="browser-nav-btn" onclick="browserForward()">▶</button>
-        <button class="browser-nav-btn" onclick="loadPage(document.getElementById('browser-url').value)">↺</button>
-        <input id="browser-url" value="redstar://home" onkeydown="if(event.key==='Enter')loadPage(this.value)">
-        <button class="browser-go" onclick="loadPage(document.getElementById('browser-url').value)">Go</button>
-      </div>
-      <div class="browser-favorites">
-        <span class="fav-btn" onclick="loadPage('redstar://home')">🏠 Home</span>
-        <span class="fav-btn" onclick="loadPage('redstar://news')">📰 News</span>
-        <span class="fav-btn" onclick="loadPage('redstar://education')">📚 Education</span>
-        <span class="fav-btn" onclick="loadPage('redstar://library')">📖 Library</span>
-        <span class="fav-btn" onclick="loadPage('redstar://services')">🏛️ Services</span>
-      </div>
-      <div id="browser-viewport"></div>
-    </div>
-  `);
+  createWindow('browser', 'Web Browser', 750, 500,
+    '<div id="browser-content">' +
+      '<div class="browser-toolbar">' +
+        '<button class="browser-nav-btn" onclick="browserBack()">◀</button>' +
+        '<button class="browser-nav-btn" onclick="browserForward()">▶</button>' +
+        '<button class="browser-nav-btn" onclick="loadPage(document.getElementById(\'browser-url\').value)">↺</button>' +
+        '<input id="browser-url" value="redstar://home" onkeydown="if(event.key===\'Enter\')loadPage(this.value)">' +
+        '<button class="browser-go" onclick="loadPage(document.getElementById(\'browser-url\').value)">Go</button>' +
+      '</div>' +
+      '<div class="browser-favorites">' +
+        '<span class="fav-btn" onclick="loadPage(\'redstar://home\')">🏠 Home</span>' +
+        '<span class="fav-btn" onclick="loadPage(\'redstar://news\')">📰 News</span>' +
+        '<span class="fav-btn" onclick="loadPage(\'redstar://education\')">📚 Education</span>' +
+        '<span class="fav-btn" onclick="loadPage(\'redstar://library\')">📖 Library</span>' +
+        '<span class="fav-btn" onclick="loadPage(\'redstar://services\')">🏛️ Services</span>' +
+      '</div>' +
+      '<div id="browser-viewport"></div>' +
+    '</div>'
+  );
   loadPage('redstar://home');
 }
 
 function loadPage(url) {
-  const urlInput = document.getElementById('browser-url');
-  const vp = document.getElementById('browser-viewport');
+  var urlInput = document.getElementById('browser-url');
+  var vp = document.getElementById('browser-viewport');
   if (!vp) return;
   if (urlInput) urlInput.value = url;
   browserHistory.push(url);
   browserCurrent = browserHistory.length - 1;
-  const pg = browserPages[url];
+  var pg = browserPages[url];
   if (pg) { vp.innerHTML = pg(); }
   else {
-    vp.innerHTML = `<div class="browser-page">
-      <h1>⚠️ Access Restricted</h1>
-      <p>This URL is not accessible from the internal network.</p>
-      <p>Only approved redstar:// addresses are available.</p>
-      <p style="color:var(--text-dim);font-size:10px;margin-top:12px;">Requested: ${url}</p>
-      <p><a onclick="loadPage('redstar://home')">← Return to Home</a></p>
-    </div>`;
+    vp.innerHTML = '<div class="browser-page"><h1>⚠️ Access Restricted</h1><p>This URL is not accessible from the internal network.</p><p>Only approved redstar:// addresses are available.</p><p style="color:var(--text-dim);font-size:10px;margin-top:12px;">Requested: ' + url + '</p><p><a onclick="loadPage(\'redstar://home\')">← Return to Home</a></p></div>';
   }
 }
 
@@ -1476,87 +1466,90 @@ function browserForward() {
 }
 
 // ===== MAPS =====
-const mapLocations = [
-  { name: 'Pyongyang', desc: 'Capital city — Administrative center', lat: 39.02, lng: 125.75, top: '40%', left: '42%', pin: '🔴' },
-  { name: 'Wonsan', desc: 'Coastal city — Economic zone', lat: 39.15, lng: 127.44, top: '38%', left: '68%', pin: '📍' },
-  { name: 'Hamhung', desc: 'Industrial city — Manufacturing hub', lat: 39.92, lng: 127.54, top: '28%', left: '70%', pin: '📍' },
-  { name: 'Kaesong', desc: 'Historical city — Border region', lat: 37.97, lng: 126.55, top: '55%', left: '52%', pin: '📍' },
-  { name: 'Chongjin', desc: 'Northern port city', lat: 41.78, lng: 129.78, top: '12%', left: '84%', pin: '📍' },
-  { name: 'Sinuiju', desc: 'Border city — Trade gateway', lat: 40.10, lng: 124.39, top: '26%', left: '28%', pin: '📍' },
-  { name: 'Mt. Paektu', desc: 'Sacred volcano — Highest peak', lat: 42.01, lng: 128.05, top: '8%', left: '60%', pin: '🌋' },
+var mapLocations = [
+  { name: 'Pyongyang', desc: 'Capital city — Administrative center', top: '40%', left: '42%', pin: '🔴' },
+  { name: 'Wonsan', desc: 'Coastal city — Economic zone', top: '38%', left: '68%', pin: '📍' },
+  { name: 'Hamhung', desc: 'Industrial city — Manufacturing hub', top: '28%', left: '70%', pin: '📍' },
+  { name: 'Kaesong', desc: 'Historical city — Border region', top: '55%', left: '52%', pin: '📍' },
+  { name: 'Chongjin', desc: 'Northern port city', top: '12%', left: '84%', pin: '📍' },
+  { name: 'Sinuiju', desc: 'Border city — Trade gateway', top: '26%', left: '28%', pin: '📍' },
+  { name: 'Mt. Paektu', desc: 'Sacred volcano — Highest peak', top: '8%', left: '60%', pin: '🌋' },
 ];
 
 function openMaps() {
-  createWindow('maps', 'Maps', 750, 500, `
-    <div id="maps-content">
-      <div class="maps-toolbar">
-        <span style="color:var(--red);font-family:'Orbitron';font-size:11px;">★ MAPS</span>
-        <input id="maps-search" placeholder="Search location...">
-        <button class="maps-search-btn" onclick="mapsSearch()">Search</button>
-        <button class="browser-nav-btn" onclick="mapsZoomIn()" style="width:30px">+</button>
-        <button class="browser-nav-btn" onclick="mapsZoomOut()" style="width:30px">−</button>
-      </div>
-      <div id="map-view">
-        ${generateMapGrid()}
-        ${mapLocations.map(l => `<div class="map-pin" style="top:${l.top};left:${l.left}" onclick="mapsSelect('${l.name}')" title="${l.name}">${l.pin}</div>`).join('')}
-        <div class="map-info-panel">
-          <h3>🗺️ LOCATIONS</h3>
-          ${mapLocations.map(l => `<div class="map-location-item" onclick="mapsSelect('${l.name}')">
-            <div class="loc-name">${l.pin} ${l.name}</div>
-            <div class="loc-desc">${l.desc}</div>
-          </div>`).join('')}
-        </div>
-      </div>
-    </div>
-  `);
+  var pinsHtml = mapLocations.map(function(l) {
+    return '<div class="map-pin" style="top:' + l.top + ';left:' + l.left + '" onclick="mapsSelect(\'' + l.name + '\')" title="' + l.name + '">' + l.pin + '</div>';
+  }).join('');
+  var listHtml = mapLocations.map(function(l) {
+    return '<div class="map-location-item" onclick="mapsSelect(\'' + l.name + '\')">' +
+      '<div class="loc-name">' + l.pin + ' ' + l.name + '</div>' +
+      '<div class="loc-desc">' + l.desc + '</div>' +
+    '</div>';
+  }).join('');
+
+  createWindow('maps', 'Maps', 750, 500,
+    '<div id="maps-content">' +
+      '<div class="maps-toolbar">' +
+        '<span style="color:var(--red);font-family:\'Orbitron\';font-size:11px;">\u2605 MAPS</span>' +
+        '<input id="maps-search" placeholder="Search location...">' +
+        '<button class="maps-search-btn" onclick="mapsSearch()">Search</button>' +
+        '<button class="browser-nav-btn" onclick="mapsZoomIn()" style="width:30px">+</button>' +
+        '<button class="browser-nav-btn" onclick="mapsZoomOut()" style="width:30px">\u2212</button>' +
+      '</div>' +
+      '<div id="map-view">' +
+        generateMapGrid() +
+        pinsHtml +
+        '<div class="map-info-panel"><h3>🗺️ LOCATIONS</h3>' + listHtml + '</div>' +
+      '</div>' +
+    '</div>'
+  );
 }
 
 function generateMapGrid() {
-  // Simple decorative map grid
-  let html = '';
-  const waterCols = [0,1,2,3,4,17,18,19];
-  const cityCells = [89, 130, 165, 220, 58, 178];
-  for (let i = 0; i < 300; i++) {
-    const col = i % 20;
-    let cls = 'map-region';
-    if (waterCols.includes(col) || i < 20 || i > 280) cls += ' water';
-    else if (cityCells.includes(i)) cls += ' city';
-    html += `<div class="${cls}"></div>`;
+  var html = '';
+  var waterCols = [0,1,2,3,4,17,18,19];
+  var cityCells = [89,130,165,220,58,178];
+  for (var i = 0; i < 300; i++) {
+    var col = i % 20;
+    var cls = 'map-region';
+    if (waterCols.indexOf(col) >= 0 || i < 20 || i > 280) cls += ' water';
+    else if (cityCells.indexOf(i) >= 0) cls += ' city';
+    html += '<div class="' + cls + '"></div>';
   }
-  return `<div class="map-grid-overlay">${html}</div>`;
+  return '<div class="map-grid-overlay">' + html + '</div>';
 }
 
 function mapsSelect(name) {
-  const loc = mapLocations.find(l => l.name === name);
-  if (loc) showNotif(`📍 ${loc.name}`, loc.desc);
+  var loc = mapLocations.find(function(l) { return l.name === name; });
+  if (loc) showNotif('📍 ' + loc.name, loc.desc);
 }
 function mapsSearch() {
-  const q = document.getElementById('maps-search').value;
-  const loc = mapLocations.find(l => l.name.toLowerCase().includes(q.toLowerCase()));
+  var q = document.getElementById('maps-search').value;
+  var loc = mapLocations.find(function(l) { return l.name.toLowerCase().includes(q.toLowerCase()); });
   if (loc) mapsSelect(loc.name);
-  else showNotif('Maps', `No results found for "${q}"`);
+  else showNotif('Maps', 'No results found for "' + q + '"');
 }
 function mapsZoomIn() { showNotif('Maps', 'Zoom in — Scale: 1:50,000'); }
 function mapsZoomOut() { showNotif('Maps', 'Zoom out — Scale: 1:200,000'); }
 
 // ===== SYSTEM MONITOR =====
 function openSysmon() {
-  createWindow('sysmon', 'System Monitor', 550, 500, `
-    <div id="sysmon-content">
-      <div class="sysmon-title">★ SYSTEM RESOURCES</div>
-      <div id="sysmon-bars"></div>
-      <div class="sysmon-title" style="margin-top:8px">PROCESSES</div>
-      <div class="process-list">
-        <div class="process-header"><span>Name</span><span>PID</span><span>CPU%</span><span>MEM</span></div>
-        <div id="process-list-body"></div>
-      </div>
-    </div>
-  `);
+  createWindow('sysmon', 'System Monitor', 550, 500,
+    '<div id="sysmon-content">' +
+      '<div class="sysmon-title">\u2605 SYSTEM RESOURCES</div>' +
+      '<div id="sysmon-bars"></div>' +
+      '<div class="sysmon-title" style="margin-top:8px">PROCESSES</div>' +
+      '<div class="process-list">' +
+        '<div class="process-header"><span>Name</span><span>PID</span><span>CPU%</span><span>MEM</span></div>' +
+        '<div id="process-list-body"></div>' +
+      '</div>' +
+    '</div>'
+  );
   updateSysmon();
   sysmonInterval = setInterval(updateSysmon, 1500);
 }
 
-const processes = [
+var processes = [
   { name: 'systemd', pid: 1, base_cpu: 0, base_mem: '1.2MB' },
   { name: 'Xorg', pid: 234, base_cpu: 2, base_mem: '45MB' },
   { name: 'redstar-desktop', pid: 456, base_cpu: 3, base_mem: '82MB' },
@@ -1568,117 +1561,143 @@ const processes = [
 ];
 
 function updateSysmon() {
-  const bars = document.getElementById('sysmon-bars');
-  const plist = document.getElementById('process-list-body');
+  var bars = document.getElementById('sysmon-bars');
+  var plist = document.getElementById('process-list-body');
   if (!bars) return;
-  const cpu = Math.floor(Math.random() * 30 + 5);
-  const mem = Math.floor(Math.random() * 20 + 25);
-  const swap = Math.floor(Math.random() * 5);
-  const disk = 25;
-  bars.innerHTML = `
-    <div class="sysmon-bar-row"><div class="sysmon-label"><span>CPU</span><span>${cpu}%</span></div><div class="sysmon-bar"><div class="sysmon-fill" style="width:${cpu}%"></div></div></div>
-    <div class="sysmon-bar-row"><div class="sysmon-label"><span>Memory (${mem}% of 4GB)</span><span>${Math.floor(mem*40.96)}MB</span></div><div class="sysmon-bar"><div class="sysmon-fill gold" style="width:${mem}%"></div></div></div>
-    <div class="sysmon-bar-row"><div class="sysmon-label"><span>Swap</span><span>${swap}%</span></div><div class="sysmon-bar"><div class="sysmon-fill green" style="width:${swap}%"></div></div></div>
-    <div class="sysmon-bar-row"><div class="sysmon-label"><span>Disk (/dev/sda1 — 50GB)</span><span>${disk}%</span></div><div class="sysmon-bar"><div class="sysmon-fill green" style="width:${disk}%"></div></div></div>
-  `;
+  var cpu = Math.floor(Math.random() * 30 + 5);
+  var mem = Math.floor(Math.random() * 20 + 25);
+  var swap = Math.floor(Math.random() * 5);
+  var disk = 25;
+  bars.innerHTML =
+    '<div class="sysmon-bar-row"><div class="sysmon-label"><span>CPU</span><span>' + cpu + '%</span></div><div class="sysmon-bar"><div class="sysmon-fill" style="width:' + cpu + '%"></div></div></div>' +
+    '<div class="sysmon-bar-row"><div class="sysmon-label"><span>Memory (' + mem + '% of 4GB)</span><span>' + Math.floor(mem*40.96) + 'MB</span></div><div class="sysmon-bar"><div class="sysmon-fill gold" style="width:' + mem + '%"></div></div></div>' +
+    '<div class="sysmon-bar-row"><div class="sysmon-label"><span>Swap</span><span>' + swap + '%</span></div><div class="sysmon-bar"><div class="sysmon-fill green" style="width:' + swap + '%"></div></div></div>' +
+    '<div class="sysmon-bar-row"><div class="sysmon-label"><span>Disk (/dev/sda1 — 50GB)</span><span>' + disk + '%</span></div><div class="sysmon-bar"><div class="sysmon-fill green" style="width:' + disk + '%"></div></div></div>';
   if (plist) {
-    plist.innerHTML = processes.map(p => {
-      const c = (p.base_cpu + Math.random() * 2).toFixed(1);
-      return `<div class="process-item"><span>${p.name}</span><span>${p.pid}</span><span>${c}%</span><span>${p.base_mem}</span></div>`;
+    plist.innerHTML = processes.map(function(p) {
+      var c = (p.base_cpu + Math.random() * 2).toFixed(1);
+      return '<div class="process-item"><span>' + p.name + '</span><span>' + p.pid + '</span><span>' + c + '%</span><span>' + p.base_mem + '</span></div>';
     }).join('');
   }
 }
 
 // ===== TEXT EDITOR =====
 function openEditor() {
-  createWindow('editor', 'Text Editor — nano', 600, 450, `
-    <div id="editor-content">
-      <div class="editor-toolbar">
-        <button class="editor-btn" onclick="editorNew()">New</button>
-        <button class="editor-btn" onclick="editorSave()">Save</button>
-        <button class="editor-btn" onclick="editorWordCount()">Word Count</button>
-        <button class="editor-btn" onclick="editorFind()">Find</button>
-        <span style="font-size:10px;color:var(--text-dim);margin-left:auto;font-family:'Share Tech Mono'" id="editor-filename">untitled.txt</span>
-      </div>
-      <textarea id="editor-area" placeholder="Start typing...
-★ 붉은별 Text Editor
-  Ctrl+S — Save&#10;  Ctrl+N — New&#10;  Ctrl+F — Find"></textarea>
-      <div class="editor-statusbar">
-        <span id="ed-line">Ln 1</span>
-        <span id="ed-col">Col 1</span>
-        <span id="ed-words">Words: 0</span>
-        <span>UTF-8</span>
-        <span>Unix (LF)</span>
-      </div>
-    </div>
-  `);
-  const ta = document.getElementById('editor-area');
-  ta?.addEventListener('keyup', updateEditorStatus);
-  ta?.addEventListener('click', updateEditorStatus);
+  createWindow('editor', 'Text Editor — nano', 600, 450,
+    '<div id="editor-content">' +
+      '<div class="editor-toolbar">' +
+        '<button class="editor-btn" onclick="editorNew()">New</button>' +
+        '<button class="editor-btn" onclick="editorSave()">Save</button>' +
+        '<button class="editor-btn" onclick="editorWordCount()">Word Count</button>' +
+        '<button class="editor-btn" onclick="editorFind()">Find</button>' +
+        '<span style="font-size:10px;color:var(--text-dim);margin-left:auto;font-family:\'Share Tech Mono\'" id="editor-filename">untitled.txt</span>' +
+      '</div>' +
+      '<textarea id="editor-area" placeholder="Start typing..."></textarea>' +
+      '<div class="editor-statusbar">' +
+        '<span id="ed-line">Ln 1</span>' +
+        '<span id="ed-col">Col 1</span>' +
+        '<span id="ed-words">Words: 0</span>' +
+        '<span>UTF-8</span>' +
+        '<span>Unix (LF)</span>' +
+      '</div>' +
+    '</div>'
+  );
+  var ta = document.getElementById('editor-area');
+  if (ta) {
+    ta.addEventListener('keyup', updateEditorStatus);
+    ta.addEventListener('click', updateEditorStatus);
+  }
 }
 
 function updateEditorStatus() {
-  const ta = document.getElementById('editor-area');
+  var ta = document.getElementById('editor-area');
   if (!ta) return;
-  const text = ta.value;
-  const lines = ta.value.substr(0, ta.selectionStart).split('\n');
-  document.getElementById('ed-line').textContent = `Ln ${lines.length}`;
-  document.getElementById('ed-col').textContent = `Col ${lines[lines.length-1].length + 1}`;
-  document.getElementById('ed-words').textContent = `Words: ${text.trim() ? text.trim().split(/\s+/).length : 0}`;
+  var text = ta.value;
+  var lines = text.substr(0, ta.selectionStart).split('\n');
+  var edLine = document.getElementById('ed-line');
+  var edCol = document.getElementById('ed-col');
+  var edWords = document.getElementById('ed-words');
+  if (edLine) edLine.textContent = 'Ln ' + lines.length;
+  if (edCol) edCol.textContent = 'Col ' + (lines[lines.length-1].length + 1);
+  if (edWords) edWords.textContent = 'Words: ' + (text.trim() ? text.trim().split(/\s+/).length : 0);
 }
 
-function editorNew() { const ta = document.getElementById('editor-area'); if(ta) ta.value = ''; document.getElementById('editor-filename').textContent = 'untitled.txt'; }
-function editorSave() { showNotif('Editor', 'File saved: ' + document.getElementById('editor-filename').textContent); }
-function editorWordCount() { const ta = document.getElementById('editor-area'); if(ta) showNotif('Editor', `Words: ${ta.value.trim().split(/\s+/).filter(Boolean).length} | Chars: ${ta.value.length}`); }
-function editorFind() { const q = prompt('Find:'); if(q) { const ta = document.getElementById('editor-area'); const i = ta?.value.indexOf(q); if(i>=0) ta.setSelectionRange(i, i+q.length); } }
+function editorNew() {
+  var ta = document.getElementById('editor-area');
+  if (ta) ta.value = '';
+  var fn = document.getElementById('editor-filename');
+  if (fn) fn.textContent = 'untitled.txt';
+}
+function editorSave() {
+  var fn = document.getElementById('editor-filename');
+  showNotif('Editor', 'File saved: ' + (fn ? fn.textContent : 'untitled.txt'));
+}
+function editorWordCount() {
+  var ta = document.getElementById('editor-area');
+  if (ta) showNotif('Editor', 'Words: ' + ta.value.trim().split(/\s+/).filter(Boolean).length + ' | Chars: ' + ta.value.length);
+}
+function editorFind() {
+  var q = prompt('Find:');
+  if (q) {
+    var ta = document.getElementById('editor-area');
+    if (ta) {
+      var i = ta.value.indexOf(q);
+      if (i >= 0) ta.setSelectionRange(i, i + q.length);
+    }
+  }
+}
 
 // ===== MUSIC PLAYER =====
 function openMusic() {
-  createWindow('music', 'Music Player', 340, 500, `
-    <div id="music-content">
-      <div class="music-cover" id="music-cover">🎵</div>
-      <div class="music-title" id="music-title">${musicTracks[0].title}</div>
-      <div class="music-artist" id="music-artist">${musicTracks[0].artist}</div>
-      <div class="music-progress">
-        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);font-family:'Share Tech Mono';margin-bottom:4px"><span id="music-time">1:18</span><span id="music-dur">${musicTracks[0].dur}</span></div>
-        <div class="music-progress-bar"><div class="music-progress-fill" id="music-prog"></div></div>
-      </div>
-      <div class="music-controls">
-        <button class="music-btn" onclick="musicPrev()">⏮</button>
-        <button class="music-btn" title="Shuffle">🔀</button>
-        <button class="music-btn play" id="music-play-btn" onclick="toggleMusic()">▶</button>
-        <button class="music-btn" title="Repeat">🔁</button>
-        <button class="music-btn" onclick="musicNext()">⏭</button>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-dim)">
-        <span>🔊</span>
-        <input type="range" class="slider-input" min="0" max="100" value="75" style="flex:1">
-      </div>
-      <div class="music-playlist">
-        ${musicTracks.map((t,i) => `<div class="playlist-item ${i===0?'active':''}" onclick="musicPlayTrack(${i})">
-          <span class="playlist-num">${i+1}</span>
-          <span style="flex:1">${t.title}</span>
-          <span style="color:var(--text-dim)">${t.dur}</span>
-        </div>`).join('')}
-      </div>
-    </div>
-  `);
+  var playlistHtml = musicTracks.map(function(t, i) {
+    return '<div class="playlist-item ' + (i === 0 ? 'active' : '') + '" onclick="musicPlayTrack(' + i + ')">' +
+      '<span class="playlist-num">' + (i+1) + '</span>' +
+      '<span style="flex:1">' + t.title + '</span>' +
+      '<span style="color:var(--text-dim)">' + t.dur + '</span>' +
+    '</div>';
+  }).join('');
+
+  createWindow('music', 'Music Player', 340, 500,
+    '<div id="music-content">' +
+      '<div class="music-cover" id="music-cover">🎵</div>' +
+      '<div class="music-title" id="music-title">' + musicTracks[0].title + '</div>' +
+      '<div class="music-artist" id="music-artist">' + musicTracks[0].artist + '</div>' +
+      '<div class="music-progress">' +
+        '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);font-family:\'Share Tech Mono\';margin-bottom:4px"><span id="music-time">0:00</span><span id="music-dur">' + musicTracks[0].dur + '</span></div>' +
+        '<div class="music-progress-bar"><div class="music-progress-fill" id="music-prog"></div></div>' +
+      '</div>' +
+      '<div class="music-controls">' +
+        '<button class="music-btn" onclick="musicPrev()">⏮</button>' +
+        '<button class="music-btn" title="Shuffle">🔀</button>' +
+        '<button class="music-btn play" id="music-play-btn" onclick="toggleMusic()">▶</button>' +
+        '<button class="music-btn" title="Repeat">🔁</button>' +
+        '<button class="music-btn" onclick="musicNext()">⏭</button>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-dim)">' +
+        '<span>🔊</span><input type="range" class="slider-input" min="0" max="100" value="75" style="flex:1">' +
+      '</div>' +
+      '<div class="music-playlist">' + playlistHtml + '</div>' +
+    '</div>'
+  );
 }
 
 function toggleMusic() {
   musicPlaying = !musicPlaying;
-  const btn = document.getElementById('music-play-btn');
-  const cover = document.getElementById('music-cover');
+  var btn = document.getElementById('music-play-btn');
+  var cover = document.getElementById('music-cover');
   if (btn) btn.textContent = musicPlaying ? '⏸' : '▶';
   if (cover) cover.classList.toggle('playing', musicPlaying);
 }
 function musicPlayTrack(i) {
   currentTrack = i;
-  const t = musicTracks[i];
-  document.getElementById('music-title').textContent = t.title;
-  document.getElementById('music-artist').textContent = t.artist;
-  document.getElementById('music-dur').textContent = t.dur;
-  document.querySelectorAll('.playlist-item').forEach((el, idx) => el.classList.toggle('active', idx === i));
+  var t = musicTracks[i];
+  var title = document.getElementById('music-title');
+  var artist = document.getElementById('music-artist');
+  var dur = document.getElementById('music-dur');
+  if (title) title.textContent = t.title;
+  if (artist) artist.textContent = t.artist;
+  if (dur) dur.textContent = t.dur;
+  document.querySelectorAll('.playlist-item').forEach(function(el, idx) { el.classList.toggle('active', idx === i); });
   if (!musicPlaying) toggleMusic();
 }
 function musicNext() { musicPlayTrack((currentTrack + 1) % musicTracks.length); }
@@ -1686,101 +1705,66 @@ function musicPrev() { musicPlayTrack((currentTrack - 1 + musicTracks.length) % 
 
 // ===== SETTINGS =====
 function openSettings() {
-  createWindow('settings', 'System Settings', 600, 450, `
-    <div id="settings-content">
-      <div class="settings-nav">
-        <div class="settings-nav-item active" onclick="settingsTab('appearance')">🎨 Appearance</div>
-        <div class="settings-nav-item" onclick="settingsTab('network')">🌐 Network</div>
-        <div class="settings-nav-item" onclick="settingsTab('system')">⚙️ System</div>
-        <div class="settings-nav-item" onclick="settingsTab('security')">🔒 Security</div>
-        <div class="settings-nav-item" onclick="settingsTab('about')">ℹ️ About</div>
-      </div>
-      <div class="settings-panel" id="settings-panel"></div>
-    </div>
-  `);
+  createWindow('settings', 'System Settings', 600, 450,
+    '<div id="settings-content">' +
+      '<div class="settings-nav">' +
+        '<div class="settings-nav-item active" onclick="settingsTab(\'appearance\')">🎨 Appearance</div>' +
+        '<div class="settings-nav-item" onclick="settingsTab(\'network\')">🌐 Network</div>' +
+        '<div class="settings-nav-item" onclick="settingsTab(\'system\')">⚙️ System</div>' +
+        '<div class="settings-nav-item" onclick="settingsTab(\'security\')">🔒 Security</div>' +
+        '<div class="settings-nav-item" onclick="settingsTab(\'about\')">ℹ️ About</div>' +
+      '</div>' +
+      '<div class="settings-panel" id="settings-panel"></div>' +
+    '</div>'
+  );
   settingsTab('appearance');
 }
 
-const settingsTabs = {
-  appearance: () => `<div class="settings-group"><h3>Appearance</h3>
-    <div class="settings-row"><span class="settings-label">Theme</span><span class="settings-value">RedStar Dark</span></div>
-    <div class="settings-row"><span class="settings-label">Font Size</span><input type="range" class="slider-input" min="8" max="16" value="12"></div>
-    <div class="settings-row"><span class="settings-label">Animations</span><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-    <div class="settings-row"><span class="settings-label">Transparency</span><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-    <div class="settings-row"><span class="settings-label">Wallpaper</span><button style="padding:4px 8px;background:#1a0505;border:1px solid var(--border);color:var(--text-dim);cursor:pointer;border-radius:3px;font-family:inherit;font-size:10px" onclick="changeWallpaper()">Change</button></div>
-  </div>`,
-  network: () => `<div class="settings-group"><h3>Network</h3>
-    <div class="settings-row"><span class="settings-label">Interface</span><span class="settings-value">eth0</span></div>
-    <div class="settings-row"><span class="settings-label">IP Address</span><span class="settings-value">10.100.0.5</span></div>
-    <div class="settings-row"><span class="settings-label">Subnet Mask</span><span class="settings-value">255.255.0.0</span></div>
-    <div class="settings-row"><span class="settings-label">Gateway</span><span class="settings-value">10.100.0.1</span></div>
-    <div class="settings-row"><span class="settings-label">DNS Server</span><span class="settings-value">10.100.0.10</span></div>
-    <div class="settings-row"><span class="settings-label">Firewall</span><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-    <div class="settings-row"><span class="settings-label">External Access</span><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
-  </div>`,
-  system: () => `<div class="settings-group"><h3>System</h3>
-    <div class="settings-row"><span class="settings-label">Language</span><span class="settings-value">한국어 (Korean)</span></div>
-    <div class="settings-row"><span class="settings-label">Timezone</span><span class="settings-value">Asia/Pyongyang (UTC+9)</span></div>
-    <div class="settings-row"><span class="settings-label">Auto Update</span><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-    <div class="settings-row"><span class="settings-label">Notifications</span><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-    <div class="settings-row"><span class="settings-label">Power Mode</span><span class="settings-value">Balanced</span></div>
-  </div>`,
-  security: () => `<div class="settings-group"><h3>Security</h3>
-    <div class="settings-row"><span class="settings-label">Screen Lock</span><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-    <div class="settings-row"><span class="settings-label">Lock Timeout</span><span class="settings-value">5 minutes</span></div>
-    <div class="settings-row"><span class="settings-label">Content Filter</span><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-    <div class="settings-row"><span class="settings-label">Access Logs</span><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
-    <div class="settings-row"><span class="settings-label">Encryption</span><span class="settings-value">AES-256</span></div>
-  </div>`,
-  about: () => `<div class="settings-group"><h3>About RedStar OS</h3>
-    <div style="text-align:center;padding:20px">
-      <div style="font-size:40px;margin-bottom:10px">★</div>
-      <div style="font-family:'Orbitron';font-size:18px;color:var(--red)">붉은별 OS</div>
-      <div style="font-size:13px;color:var(--gold);margin:4px 0">RedStar Operating System</div>
-      <div style="font-size:11px;color:var(--text-dim)">Version 4.0 (Mangyongdae)</div>
-    </div>
-    <div class="settings-row"><span class="settings-label">Kernel</span><span class="settings-value">Linux 3.14.1-redstar</span></div>
-    <div class="settings-row"><span class="settings-label">Desktop</span><span class="settings-value">붉은별 DE 4.0</span></div>
-    <div class="settings-row"><span class="settings-label">Architecture</span><span class="settings-value">x86_64</span></div>
-    <div class="settings-row"><span class="settings-label">Build Date</span><span class="settings-value">2024.01.01</span></div>
-  </div>`,
+var settingsTabs = {
+  appearance: function() { return '<div class="settings-group"><h3>Appearance</h3><div class="settings-row"><span class="settings-label">Theme</span><span class="settings-value">RedStar Dark</span></div><div class="settings-row"><span class="settings-label">Font Size</span><input type="range" class="slider-input" min="8" max="16" value="12"></div><div class="settings-row"><span class="settings-label">Animations</span><div class="toggle on" onclick="this.classList.toggle(\'on\')"></div></div><div class="settings-row"><span class="settings-label">Transparency</span><div class="toggle on" onclick="this.classList.toggle(\'on\')"></div></div><div class="settings-row"><span class="settings-label">Wallpaper</span><button style="padding:4px 8px;background:#1a0505;border:1px solid var(--border);color:var(--text-dim);cursor:pointer;border-radius:3px;font-family:inherit;font-size:10px" onclick="changeWallpaper()">Change</button></div></div>'; },
+  network: function() { return '<div class="settings-group"><h3>Network</h3><div class="settings-row"><span class="settings-label">Interface</span><span class="settings-value">eth0</span></div><div class="settings-row"><span class="settings-label">IP Address</span><span class="settings-value">10.100.0.5</span></div><div class="settings-row"><span class="settings-label">Subnet Mask</span><span class="settings-value">255.255.0.0</span></div><div class="settings-row"><span class="settings-label">Gateway</span><span class="settings-value">10.100.0.1</span></div><div class="settings-row"><span class="settings-label">DNS Server</span><span class="settings-value">10.100.0.10</span></div><div class="settings-row"><span class="settings-label">Firewall</span><div class="toggle on" onclick="this.classList.toggle(\'on\')"></div></div><div class="settings-row"><span class="settings-label">External Access</span><div class="toggle" onclick="this.classList.toggle(\'on\')"></div></div></div>'; },
+  system: function() { return '<div class="settings-group"><h3>System</h3><div class="settings-row"><span class="settings-label">Language</span><span class="settings-value">한국어 (Korean)</span></div><div class="settings-row"><span class="settings-label">Timezone</span><span class="settings-value">Asia/Pyongyang (UTC+9)</span></div><div class="settings-row"><span class="settings-label">Auto Update</span><div class="toggle on" onclick="this.classList.toggle(\'on\')"></div></div><div class="settings-row"><span class="settings-label">Notifications</span><div class="toggle on" onclick="this.classList.toggle(\'on\')"></div></div><div class="settings-row"><span class="settings-label">Power Mode</span><span class="settings-value">Balanced</span></div></div>'; },
+  security: function() { return '<div class="settings-group"><h3>Security</h3><div class="settings-row"><span class="settings-label">Screen Lock</span><div class="toggle on" onclick="this.classList.toggle(\'on\')"></div></div><div class="settings-row"><span class="settings-label">Lock Timeout</span><span class="settings-value">5 minutes</span></div><div class="settings-row"><span class="settings-label">Content Filter</span><div class="toggle on" onclick="this.classList.toggle(\'on\')"></div></div><div class="settings-row"><span class="settings-label">Access Logs</span><div class="toggle on" onclick="this.classList.toggle(\'on\')"></div></div><div class="settings-row"><span class="settings-label">Encryption</span><span class="settings-value">AES-256</span></div></div>'; },
+  about: function() { return '<div class="settings-group"><h3>About RedStar OS</h3><div style="text-align:center;padding:20px"><div style="font-size:40px;margin-bottom:10px">★</div><div style="font-family:\'Orbitron\';font-size:18px;color:var(--red)">붉은별 OS</div><div style="font-size:13px;color:var(--gold);margin:4px 0">RedStar Operating System</div><div style="font-size:11px;color:var(--text-dim)">Version 4.0 (Mangyongdae)</div></div><div class="settings-row"><span class="settings-label">Kernel</span><span class="settings-value">Linux 3.14.1-redstar</span></div><div class="settings-row"><span class="settings-label">Desktop</span><span class="settings-value">붉은별 DE 4.0</span></div><div class="settings-row"><span class="settings-label">Architecture</span><span class="settings-value">x86_64</span></div><div class="settings-row"><span class="settings-label">Build Date</span><span class="settings-value">2024.01.01</span></div></div>'; },
 };
 
 function settingsTab(tab) {
-  document.querySelectorAll('.settings-nav-item').forEach(i => i.classList.toggle('active', i.textContent.toLowerCase().includes(tab)));
-  const panel = document.getElementById('settings-panel');
+  document.querySelectorAll('.settings-nav-item').forEach(function(item) {
+    item.classList.toggle('active', item.textContent.toLowerCase().includes(tab));
+  });
+  var panel = document.getElementById('settings-panel');
   if (panel && settingsTabs[tab]) panel.innerHTML = settingsTabs[tab]();
 }
 
 // ===== IMAGE VIEWER =====
 function openImgView() {
-  createWindow('imgview', 'Image Viewer', 500, 400, `
-    <div style="display:flex;flex-direction:column;height:100%">
-      <div class="img-toolbar">
-        <button class="editor-btn">Open</button>
-        <button class="editor-btn">Zoom +</button>
-        <button class="editor-btn">Zoom −</button>
-        <button class="editor-btn">Rotate</button>
-        <button class="editor-btn">Fullscreen</button>
-      </div>
-      <div id="imgview-content">
-        <div class="img-placeholder">🖼️</div>
-        <p style="color:var(--text-dim);font-size:12px">No image open</p>
-        <p style="color:var(--text-dim);font-size:10px">Supported: PNG, JPG, GIF, BMP, SVG</p>
-      </div>
-    </div>
-  `);
+  createWindow('imgview', 'Image Viewer', 500, 400,
+    '<div style="display:flex;flex-direction:column;height:100%">' +
+      '<div class="img-toolbar">' +
+        '<button class="editor-btn">Open</button>' +
+        '<button class="editor-btn">Zoom +</button>' +
+        '<button class="editor-btn">Zoom \u2212</button>' +
+        '<button class="editor-btn">Rotate</button>' +
+        '<button class="editor-btn">Fullscreen</button>' +
+      '</div>' +
+      '<div id="imgview-content">' +
+        '<div class="img-placeholder">🖼️</div>' +
+        '<p style="color:var(--text-dim);font-size:12px">No image open</p>' +
+        '<p style="color:var(--text-dim);font-size:10px">Supported: PNG, JPG, GIF, BMP, SVG</p>' +
+      '</div>' +
+    '</div>'
+  );
 }
 
 // ===== WALLPAPER CHANGER =====
-const wallpapers = [
+var wallpapers = [
   'radial-gradient(ellipse at 50% 30%, #3a000044 0%, transparent 70%), linear-gradient(180deg, #0a0000 0%, #1a0505 40%, #0d0505 100%)',
   'radial-gradient(ellipse at 50% 50%, #002200 0%, #000500 100%)',
   'linear-gradient(135deg, #000011, #001133, #000022)',
   'linear-gradient(180deg, #110000, #220000, #110000)',
   'radial-gradient(ellipse at 20% 80%, #001100, transparent), radial-gradient(ellipse at 80% 20%, #110000, transparent), #000',
 ];
-let wpIdx = 0;
+var wpIdx = 0;
 function changeWallpaper() {
   wpIdx = (wpIdx + 1) % wallpapers.length;
   document.getElementById('wallpaper').style.background = wallpapers[wpIdx];
@@ -1788,25 +1772,25 @@ function changeWallpaper() {
 }
 
 // ===== CONTEXT MENU =====
-document.getElementById('desktop').addEventListener('contextmenu', e => {
+document.getElementById('desktop').addEventListener('contextmenu', function(e) {
   e.preventDefault();
-  const menu = document.getElementById('ctx-menu');
+  var menu = document.getElementById('ctx-menu');
   menu.style.left = Math.min(e.clientX, window.innerWidth - 170) + 'px';
   menu.style.top = Math.min(e.clientY, window.innerHeight - 200) + 'px';
   menu.classList.add('visible');
 });
-document.addEventListener('click', () => document.getElementById('ctx-menu').classList.remove('visible'));
+document.addEventListener('click', function() { document.getElementById('ctx-menu').classList.remove('visible'); });
 
 // ===== DESKTOP ICON SELECTION =====
-document.getElementById('desktop').addEventListener('click', e => {
+document.getElementById('desktop').addEventListener('click', function(e) {
   if (!e.target.closest('.desktop-icon')) {
-    document.querySelectorAll('.desktop-icon.selected').forEach(el => el.classList.remove('selected'));
+    document.querySelectorAll('.desktop-icon.selected').forEach(function(el) { el.classList.remove('selected'); });
   }
 });
-document.querySelectorAll('.desktop-icon').forEach(icon => {
-  icon.addEventListener('click', e => {
+document.querySelectorAll('.desktop-icon').forEach(function(icon) {
+  icon.addEventListener('click', function(e) {
     e.stopPropagation();
-    document.querySelectorAll('.desktop-icon.selected').forEach(el => el.classList.remove('selected'));
+    document.querySelectorAll('.desktop-icon.selected').forEach(function(el) { el.classList.remove('selected'); });
     icon.classList.add('selected');
   });
 });
